@@ -1,5 +1,12 @@
 Revision history for Perl extension Proc::PID::File.
 
+1.3  Mon Oct 28 12:29:53 2002
+	- fixed bug in DESTROY that caused PID files to be deleted
+	  incorrectly (thx NWETTERS)
+
+1.2  Fri Sep 20 06:38:45 2002
+	- ripped out the procedure interface, concentrating on oo
+	- added modified PODs
 
 0.05 Wed Jan 23 01:09:28 2002
 	- remove mtime stuff

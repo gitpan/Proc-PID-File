@@ -11,7 +11,7 @@ use Fcntl qw(:DEFAULT :flock);
 use strict;
 use vars qw($VERSION);
 
-$VERSION = (qw($Revision: 1.2 $))[1];
+$VERSION = (qw($Revision: 1.3 $))[1];
 
 my $RUNDIR = "/var/run";
 my $ME = $0; $ME =~ s|.*/||;
@@ -117,7 +117,8 @@ sub pid_file_remove {
 
 sub DESTROY {
 	my $self = shift;
-	$self->remove() if $self->{path};
+	my $pid = $self->read();
+	$self->remove() if $self->{path} && $pid && $pid == $$;
 	}
 
 1;

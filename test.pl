@@ -6,12 +6,12 @@
 #########################
 
 # make sure test.pl can find the module without being run by 'make test'
-use lib 'Iblib/arch';
-use lib 'blib/lib';
+use strict;
+use warnings;
 
 # set up simple testing
-use Test::Simple tests => 7;
-use Proc::PID::File
+use Test::Simple tests => 8;
+use Proc::PID::File;
 ok(1, 'use Proc::PID::File'); # If we made it this far, we're ok.
 
 #########################
@@ -21,14 +21,11 @@ ok(1, 'use Proc::PID::File'); # If we made it this far, we're ok.
 
 $|++; $\ = "\n";
 
-$pf = Proc::PID::File->new(
+my $pf = Proc::PID::File->new(
 	dir => ".",
 	name => "test",
 	debug => $ENV{DEBUG}
 	);
-
-$pf->write(), sleep(30), exit()
-	if shift eq "--daemon";
 
 # test no one running
 
@@ -37,11 +34,17 @@ ok($pf->read() == $$, "Read id");
 $pf->remove();
 ok(! -f $pf->{path}, "Remove tested");
 
-# test someone running
+# test one other process running
+ok(! $pf->alive(), "Single instance again");
+ok($pf->read() == $$, "Read id is OK in parent");
 
-unlink $pf->{path} || die qq/unable to remove pidfile: "$pf->{path}"/;
-system qq|./test.pl --daemon > /dev/null 2>&1 &|;
-wait until -f $pf->{path};
-ok(1, "Write test");
-ok($pf->alive(), "Second incarnation");
+if (my $pid = fork){
+    # parent here
+    sleep 3;
+    ok($pf->read() == $$, "PID file not destroyed");
+} else {
+    $pf->alive();
+    exit;
+}
+
 ok(1, "Done");
