@@ -1,5 +1,9 @@
 Revision history for Perl extension Proc::PID::File.
 
+1.24 04/04/07 19:26:32 - ekkis
+    - removed OO and procedural interfaces, leaving only the
+      simple one
+
 1.22 06/03/03 17:01:30 - ekkis
     - incorporated a patch produced by Nigel Wetters <nwetters@cpan.org>
       that fixed a problem with pidfile removal.  For more info See:

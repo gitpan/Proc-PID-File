@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 
 #
 #   Proc::PID::File - test suite
@@ -24,40 +24,35 @@ use warnings;
 
 #   make sure this script can find the module
 #   without being run by 'make test' (see --deamon switch below).
+
 use lib "blib/lib";
 
 #   set up expectations
 
 $|++; $\ = "\n";
-use Test::Simple tests => 13;
 
 use Proc::PID::File;
-ok(1, 'use Proc::PID::File'); # If we made it this far, we're ok.
-
-my $pf = Proc::PID::File->new(
-	dir => ".",
-	name => "test",
-	debug => $ENV{DEBUG}
-	);
-
-my $cmd = shift || "";
-exit() if $cmd eq "--short";
-
-$pf->write(), sleep(5), exit()
-	if $cmd eq "--daemon";
-
-#
-# --- test simple interface -----------------------------------------------
-#
+use Test::Simple tests => 7;
 
 my %args = ( name => "test", dir => ".", debug => $ENV{DEBUG} );
+my $cmd = shift || "";
+
+if ($cmd eq "--daemon") {
+    die "Already running!" if Proc::PID::File->running(%args);
+    sleep(5);
+    exit();
+    }
+
+exit() if $cmd eq "--short";
+
+ok(1, 'use Proc::PID::File'); # If we made it this far, we're ok.
 
 unlink("test.pid") || die $! if -e "test.pid";  # blank slate
 system qq|$^X $0 --daemon > /dev/null 2>&1 &|; sleep 1;
 my $pid = qx/cat test.pid/; chomp $pid;
 
 my $rc = Proc::PID::File->running(%args);
-ok($rc, "* simple interface");
+ok($rc, "running");
 
 $rc = Proc::PID::File->running(%args, verify => 1);
 ok($rc, "verified: real");
@@ -74,29 +69,9 @@ sleep 1 while kill 0, $pid;
 $rc = Proc::PID::File->running(%args);
 ok(! $rc, "single instance");
 
-#
-# --- test OO interface ---------------------------------------------------
-#
-
-# test no one running
-
-ok(1, "* OO interface");
-ok(! $pf->alive(), "single instance");
-ok($pf->read() == $$, "id read");
-$pf->remove();
-ok(! -f $pf->{path}, "pidfile removed");
-exit(1) if -f $pf->{path};
-
-# test someone running
-
-system qq|$^X $0 --daemon > /dev/null 2>&1 &|;
-wait until -f $pf->{path};
-ok(1, "write tested");
-ok($pf->alive(), "second incarnation");
-
 # test DESTROY
 
 system qq|$^X $0 --short > /dev/null 2>&1|;
-ok(-f $pf->{path}, "destroy");
+ok(-f "test.pid", "destroy");
 
 ok(1, "done");
