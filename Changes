@@ -1,12 +1,25 @@
 Revision history for Perl extension Proc::PID::File.
 
-1.3  Mon Oct 28 12:29:53 2002
-	- fixed bug in DESTROY that caused PID files to be deleted
-	  incorrectly (thx NWETTERS)
+1.3 2003/06/03 18:10:14 - ekkis
+    - changed version system to manual updates
+    - added dependency code/docs for "ps"
+    - documented that the name verification string passed to the simple
+      interface is used as a regexp
+    - ps output now parsed for COMMAND matching only
+    - Thanks to alan <alan@pair.com> for his continued support.
 
-1.2  Fri Sep 20 06:38:45 2002
-	- ripped out the procedure interface, concentrating on oo
-	- added modified PODs
+1.6 2003/05/30 23:14:39 - ekkis
+    - verify() now takes a string to allow the user to supply the command
+      to be matched against
+
+1.5 2003/05/30 22:42:41 - ekkis
+    - added verification of pids using qx/ps/ to avoid bootup problem
+    - modified docs, added standard stuff, included warning
+
+1.4 2003/05/29 05:35:23 - ekkis
+    - implemented running() to avoid race conditions into a new
+      simple interface.  Thanks to Alan Ferrency <alan@pair.com>
+      for pointing it out and suggesting the solution
 
 0.05 Wed Jan 23 01:09:28 2002
 	- remove mtime stuff

@@ -1,50 +1,63 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 
-# Before `make install' is performed this script should be runnable with
-# `make test'. After `make install' it should work as `perl test.pl'
+#   make sure this script can find the module
+#   without being run by 'make test' (see --deamon switch below).
 
-#########################
+use lib 'Iblib/arch';
+use lib 'blib/lib';
 
-# make sure test.pl can find the module without being run by 'make test'
-use strict;
-use warnings;
+#   set up expectations
 
-# set up simple testing
-use Test::Simple tests => 8;
-use Proc::PID::File;
-ok(1, 'use Proc::PID::File'); # If we made it this far, we're ok.
-
-#########################
-
-# Insert your test code below, the Test module is use()ed here so read
-# its man page ( perldoc Test ) for help writing this test script.
+use Test::Simple tests => 11;
 
 $|++; $\ = "\n";
+use Proc::PID::File
+ok(1, 'use Proc::PID::File'); # If we made it this far, we're ok.
 
-my $pf = Proc::PID::File->new(
+$pf = Proc::PID::File->new(
 	dir => ".",
 	name => "test",
 	debug => $ENV{DEBUG}
 	);
 
+$pf->write(), sleep(30), exit()
+	if (shift || "") eq "--daemon";
+
 # test no one running
 
-ok(! $pf->alive(), "Single instance");
+ok(! $pf->alive()
+    , "Single instance"
+    );
+ok(! Proc::PID::File->running(name => "test", dir => ".")
+    , "Simple interface"
+    );
 ok($pf->read() == $$, "Read id");
 $pf->remove();
 ok(! -f $pf->{path}, "Remove tested");
+exit(1) if -f $pf->{path};
 
-# test one other process running
-ok(! $pf->alive(), "Single instance again");
-ok($pf->read() == $$, "Read id is OK in parent");
+# test someone running
 
-if (my $pid = fork){
-    # parent here
-    sleep 3;
-    ok($pf->read() == $$, "PID file not destroyed");
-} else {
-    $pf->alive();
-    exit;
-}
+system qq|./test.pl --daemon > /dev/null 2>&1 &|;
+wait until -f $pf->{path};
+ok(1, "Write test");
+ok($pf->alive(), "Second incarnation");
+
+# test simple interface
+
+$rc = Proc::PID::File->running(
+    name => "test", dir => "."
+    );
+ok($rc, "Simple interface");
+
+$rc = Proc::PID::File->running(
+    verify => 1, name => "test", dir => "."
+    );
+ok($rc, "Verified - Real");
+
+$rc = Proc::PID::File->running(
+    verify => "falsetest", name => "test", dir => "."
+    );
+ok(! $rc, "Verified - False");
 
 ok(1, "Done");
