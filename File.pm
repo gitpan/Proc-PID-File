@@ -28,7 +28,7 @@ use Fcntl qw(:DEFAULT :flock);
 use strict;
 use vars qw($VERSION $RPM_Requires);
 
-$VERSION = "1.21";
+$VERSION = "1.22";
 $RPM_Requires = "procps";
 
 my $RUNDIR = "/var/run";
@@ -295,7 +295,9 @@ sub debug {
 
 sub DESTROY {
 	my $self = shift;
-	$self->remove() if $self->{path};
+
+    my $pid = $self->read();
+    $self->remove() if $self->{path} && $pid && $pid == $$;
 	}
 
 1;
@@ -360,4 +362,4 @@ The latest version of the tarball, RPM and SRPM may always be found at: F<http:/
 
 This utility is free and distributed under GPL, the Gnu Public License.  A copy of this license was included in a file called LICENSE. If for some reason, this file was not included, please see F<http://www.gnu.org/licenses/> to obtain a copy of this license.
 
-$Id: File.pm,v 1.9 2003/06/03 19:20:00 ekkis Exp $
+$Id: File.pm,v 1.11 2003/06/03 23:59:43 ekkis Exp $
