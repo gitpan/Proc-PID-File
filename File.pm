@@ -1,3 +1,22 @@
+#
+#   Proc::PID::File - pidfile manager
+#   Copyright (C) 2001-2003 Erick Calder
+#
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 2 of the License, or
+#   (at your option) any later version.
+#
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+
 package Proc::PID::File;
 
 =head1 NAME
@@ -28,7 +47,7 @@ use Fcntl qw(:DEFAULT :flock);
 use strict;
 use vars qw($VERSION $RPM_Requires);
 
-$VERSION = "1.22";
+$VERSION = "1.23";
 $RPM_Requires = "procps";
 
 my $RUNDIR = "/var/run";
@@ -59,49 +78,49 @@ Supported platforms: Linux, FreeBSD
 =cut
 
 sub running {
-	my $self = shift; my %args = &args;
-
-	my $path = sprintf(
-        "%s/%s.pid",
-        $args{dir} || $RUNDIR,
-        $args{name} || $ME,
-        );
+    my $self = shift->new(@_);
+	my $path = $self->{path};
 
     local *FH;
 	sysopen(FH, $path, O_RDWR|O_CREAT)
 		|| die qq/Cannot open pid file "$path": $!\n/;
-	flock FH, LOCK_EX;
+	flock(FH, LOCK_EX | LOCK_NB)
+        || die "pid " . $self->{'path'} . " already locked";
 	my ($pid) = <FH> =~ /^(\d+)/;
 
 	if ($pid && $pid != $$ && kill(0, $pid)) {
-        if ($args{verify} ? verify($pid, $args{verify}) : 1) {
+        $self->debug("running: $pid");
+        if ($self->verify($pid)) {
 	        close FH;
 	        return $pid;
             }
         }
 
+    $self->debug("writing: $$");
 	sysseek  FH, 0, 0;
 	truncate FH, 0;
 	syswrite FH, "$$\n", length("$$\n");
-
 	close(FH) || die qq/Cannot write pid file "$path": $!\n/;
+
 	return 0;
     }
 
 sub verify {
-    my $pid = shift;
+    my ($self, $pid) = @_;
+    return 1 unless $self->{verify};
 
     eval "use Config";
     die "$@\nCannot use the Config module.  Please install.\n" if $@;
 
+    $self->debug("verifying on: $Config::Config{osname}");
     if ($Config::Config{osname} =~ /linux|freebsd/i) {
-        my $me = shift;
+        my $me = $self->{verify};
         ($me = $0) =~ s|.*/|| if !$me || $me eq "1";
-        my @ps = split m|$/|, qx/ps -p $pid/
+        my @ps = split m|$/|, qx/ps -fp $pid/
             || die "ps utility not available: $!";
         s/^\s+// for @ps;   # leading spaces confuse us
 
-        no warnings;    # I hate that deprecated @_ thing
+        no warnings;    # hate that deprecated @_ thing
         my $n = split(/\s+/, $ps[0]);
         @ps = split /\s+/, $ps[1], $n;
         return scalar grep /$me/, $ps[$n - 1];
@@ -196,7 +215,8 @@ sub read {
 	local *FH;
 	sysopen FH, $self->{path}, O_RDWR|O_CREAT
 		|| die qq/Cannot open pid file "$self->{path}": $!\n/;
-	flock FH, LOCK_EX;
+	flock(FH, LOCK_EX | LOCK_NB)
+        || die "pid " . $self->{'path'} . " already locked";
 	my ($pid) = <FH> =~ /^(\d+)/;
 	close FH;
 
@@ -216,7 +236,8 @@ sub write {
 	local *FH;
 	sysopen FH, $self->{path}, O_RDWR|O_CREAT
 		|| die qq/Cannot open pid file "$self->{path}": $!\n/;
-	flock FH, LOCK_EX;
+	flock(FH, LOCK_EX | LOCK_NB)
+        || die "pid " . $self->{'path'} . " already locked";
 	sysseek  FH, 0, 0;
 	truncate FH, 0;
 	syswrite FH, "$$\n", length("$$\n");
@@ -362,4 +383,4 @@ The latest version of the tarball, RPM and SRPM may always be found at: F<http:/
 
 This utility is free and distributed under GPL, the Gnu Public License.  A copy of this license was included in a file called LICENSE. If for some reason, this file was not included, please see F<http://www.gnu.org/licenses/> to obtain a copy of this license.
 
-$Id: File.pm,v 1.11 2003/06/03 23:59:43 ekkis Exp $
+$Id: File.pm,v 1.15 2003/11/02 01:36:07 ekkis Exp $
