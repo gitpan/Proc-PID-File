@@ -5,3 +5,4 @@ File.pm
 test.pl
 README
 LICENSE
+META.yml                                 Module meta-data (added by MakeMaker)

@@ -38,7 +38,7 @@ use strict;
 use vars qw($VERSION $RPM_Requires);
 use Fcntl qw(:DEFAULT :flock);
 
-$VERSION = "1.24";
+$VERSION = "1.25";
 $RPM_Requires = "procps";
 
 my $RUNDIR = "/var/run";
@@ -175,6 +175,10 @@ sub debug {
 sub DESTROY {
 	my $self = shift;
 
+    if (exists($INC{'threads.pm'})){
+        return if (threads->tid() != 0);
+    }
+    
     open(PID, $self->{path})
 		|| die qq/Cannot open pid file "$self->{path}": $!\n/
         ;
@@ -239,4 +243,4 @@ The latest version of the tarball, RPM and SRPM may always be found at: F<http:/
 
 This utility is free and distributed under GPL, the Gnu Public License.  A copy of this license was included in a file called LICENSE. If for some reason, this file was not included, please see F<http://www.gnu.org/licenses/> to obtain a copy of this license.
 
-$Id: File.pm,v 1.16 2004/04/08 02:27:25 ekkis Exp $
+$Id: File.pm,v 1.16 2004-04-08 02:27:25 ekkis Exp $
