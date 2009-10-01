@@ -27,58 +27,106 @@ use warnings;
 
 use lib "blib/lib";
 
-#   set up expectations
+use Proc::PID::File;
+use Test::Simple tests => 12;
+use Config;
 
 $|++; $\ = "\n";
-
-use Proc::PID::File;
-use Test::Simple tests => 8;
-use threads;
-
-my %args = ( name => "test", dir => ".", debug => $ENV{DEBUG} );
+my %args = (name => "test", dir => ".", debug => $ENV{DEBUG} || "");
 my $cmd = shift || "";
 
+# - deamon -------------------------------------------------------------------
+
 if ($cmd eq "--daemon") {
+	print "-- daemon --";
+	$args{verify} = 1;
     die "Already running!" if Proc::PID::File->running(%args);
     sleep(5);
+	print "-- deamon: exiting --";
     exit();
     }
 
 exit() if $cmd eq "--short";
 
-ok(1, 'use Proc::PID::File'); # If we made it this far, we're ok.
+my $pid;
+sub rundaemon {
+	my $pipes = $args{debug} =~ /D/ ? "" : "> /dev/null 2>&1";
+	system qq|$^X $0 --daemon $pipes &|;
+	sleep 1;
+	chomp($pid = qx|cat $args{dir}/$args{name}.pid|);
+	}
 
-# test for thread safety
-Proc::PID::File->running(%args);
-threads->create(sub { })->join();
-sleep(2);
-ok(-f "test.pid", "thread safe");
+# - thread-safety test -------------------------------------------------------
 
-unlink("test.pid") || die $! if -e "test.pid";  # blank slate
-system qq|$^X $0 --daemon > /dev/null 2>&1 &|; sleep 1;
-my $pid = qx/cat test.pid/; chomp $pid;
+ok(1, "SKIPPED - simple: thread safe") unless
+	$] >= 5.008001
+	&& $Config{"useithreads"}
+	&& eval { 
+		require threads; 
+		Proc::PID::File->running(%args);
+		threads->create(sub {})->join();
+		sleep(2);
+		ok(-f "test.pid", "simple: thread safe");
+	};
 
+# - basic run test -----------------------------------------------------------
+
+unlink("test.pid") || die $! if -e "test.pid";
+rundaemon();
 my $rc = Proc::PID::File->running(%args);
-ok($rc, "running");
+ok($rc, "simple: running");
 
-$rc = Proc::PID::File->running(%args, verify => 1);
-ok($rc, "verified: real");
+# - verification tests -------------------------------------------------------
 
-# WARNING: the following test takes over the pidfile from the
-# daemon such that he cannot clean it up.  this is as it should be
-# since no one but us should occupy our pidfile 
+ok(1, "SKIPPED - simple: verified (real)") unless
+	$^O =~ /linux|freebsd|cygwin/i
+	&& eval {
+		$rc = Proc::PID::File->running(%args, verify => 1);
+		ok($rc, "simple: verified (real)");
+		};
 
-$rc = Proc::PID::File->running(%args, verify => "falsetest");
-ok(! $rc, "verified: false");
+ok(1, "SKIPPED - simple: verified (false)") unless
+	$^O =~ /linux|freebsd|cygwin/i
+	&& eval {
+		# WARNING: the following test takes over the pidfile from
+		# the daemon such that he cannot clean it up.  this is as
+		# it should be since no one but us should occupy our pidfile 
+
+		$rc = Proc::PID::File->running(%args, verify => "falsetest");
+		ok(! $rc, "simple: verified (false)");
+		};
+
+# - single instance test -----------------------------------------------------
 
 sleep 1 while kill 0, $pid;
 
 $rc = Proc::PID::File->running(%args);
-ok(! $rc, "single instance");
+ok(! $rc, "simple: single instance");
 
-# test DESTROY
+# - destroy test -------------------------------------------------------------
 
 system qq|$^X $0 --short > /dev/null 2>&1|;
-ok(-f "test.pid", "destroy");
+ok(-f "test.pid", "simple: destroy");
 
-ok(1, "done");
+# - OO Interface tests -------------------------------------------------------
+
+my $c1 = Proc::PID::File->new(%args);
+ok($c1->{path}, "oo: object initialised");
+
+$c1->touch();
+ok(-f $c1->{path}, "oo: file touched");
+
+ok(!$c1->alive(), "oo: alive (with current process)");
+
+unlink("test.pid") || die $! if -e "test.pid";
+rundaemon();
+ok($c1->alive(), "oo: alive (with daemon)");
+
+ok(1, "SKIPPED - oo: alive (verified)") unless
+	$^O =~ /linux|freebsd|cygwin/i
+	&& eval {
+		ok($c1->alive(verify => 1), "oo: alive (verified)");
+		};
+
+$c1->release();
+ok(! -f $c1->{path}, "oo: released");
